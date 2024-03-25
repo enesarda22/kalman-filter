@@ -79,8 +79,6 @@ if __name__ == "__main__":
 
         # sample a batch of data
         xb, yb = dataloader.get_batch("train")
-        xb = xb.to(device)
-        yb = yb.to(device)
 
         # evaluate the loss
         logits, loss = decoder(
