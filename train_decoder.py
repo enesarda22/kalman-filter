@@ -32,7 +32,7 @@ if __name__ == "__main__":
     max_iters = 5000
     eval_interval = 500
     learning_rate = 3e-4
-    eval_iters = 100
+    eval_iters = 200
     n_embeddings = 384
     n_heads = 6
     n_blocks = 6
@@ -74,6 +74,7 @@ if __name__ == "__main__":
                 path=f"checkpoints/decoder_{i}.pt",
                 model_state_dict=decoder.state_dict(),
                 optimizer_state_dict=optimizer.state_dict(),
+                mean_val_loss=losses["val"],
             )
 
         # sample a batch of data
