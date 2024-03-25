@@ -28,14 +28,14 @@ def estimate_loss():
 if __name__ == "__main__":
     # hyperparameters
     batch_size = 64
-    block_size = 32  # 256
+    block_size = 256
     max_iters = 5000
     eval_interval = 500
     learning_rate = 3e-4
     eval_iters = 100
     n_embeddings = 384
-    n_heads = 1  # 6
-    n_blocks = 1  # 6
+    n_heads = 6
+    n_blocks = 6
     # ------------
 
     device = get_device()

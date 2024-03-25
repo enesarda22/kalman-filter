@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from torch.utils.data import TensorDataset, DataLoader
-
-from tqdm import tqdm
 
 from utils.general import get_device
 
