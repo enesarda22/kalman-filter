@@ -54,7 +54,7 @@ if __name__ == "__main__":
         n_embeddings=n_embeddings,
         block_size=block_size,
     ).to(device)
-    encoder_output = torch.zeros(batch_size, block_size, n_embeddings)
+    encoder_output = torch.zeros(batch_size, block_size, n_embeddings).to(device)
 
     # print the number of parameters in the model
     print(sum(p.numel() for p in decoder.parameters()) / 1e6, "M parameters")
