@@ -89,18 +89,3 @@ if __name__ == "__main__":
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
-
-    # generate from the model
-    context = dataloader.encode("\n")[0] * torch.ones(
-        (1, block_size), dtype=torch.long, device=device
-    )
-    print(
-        dataloader.decode(
-            decoder.generate(
-                idx=context,
-                encoder_output=encoder_output[[0], :],
-                block_size=block_size,
-                max_new_tokens=500,
-            )[0].tolist()
-        )
-    )
