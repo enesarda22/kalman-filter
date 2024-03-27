@@ -7,10 +7,10 @@ from utils.general import get_device
 if __name__ == "__main__":
     # hyperparameters
     batch_size = 64
-    block_size = 256
+    block_size = 512
     n_embeddings = 384
     n_heads = 6
-    n_blocks = 6
+    n_blocks = 12
     # ------------
 
     device = get_device()
