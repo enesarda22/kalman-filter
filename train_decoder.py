@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -11,7 +12,7 @@ def estimate_loss():
     out = {}
     decoder.eval()
     for split in ["train", "val"]:
-        losses = torch.zeros(eval_iters)
+        losses = []
         for k in range(eval_iters):
             X, Y = dataloader.get_batch(split)
             logits, loss = decoder(
@@ -19,8 +20,8 @@ def estimate_loss():
                 encoder_output=encoder_output,
                 targets=Y,
             )
-            losses[k] = loss.item()
-        out[split] = losses.mean()
+            losses.append(loss.item())
+        out[split] = np.mean(losses)
     decoder.train()
     return out
 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     block_size = 256
     max_iters = 5000
     eval_interval = 500
-    learning_rate = 3e-4
+    learning_rate = 1e-5
     eval_iters = 200
     n_embeddings = 384
     n_heads = 6
