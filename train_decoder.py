@@ -29,7 +29,7 @@ def estimate_loss():
 if __name__ == "__main__":
     # hyperparameters
     batch_size = 64
-    block_size = 512
+    block_size = 384
     max_iters = 5000
     eval_interval = 500
     learning_rate = 1e-5
