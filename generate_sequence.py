@@ -29,7 +29,7 @@ if __name__ == "__main__":
         block_size=block_size,
     ).to(device)
 
-    checkpoint = torch.load("checkpoints/decoder_4999.pt", map_location=device)
+    checkpoint = torch.load("checkpoints/lr3e-4/decoder_4999.pt", map_location=device)
     decoder.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
     context = dataloader.encode("\n")[0] * torch.ones(
