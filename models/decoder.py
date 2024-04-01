@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from tqdm import tqdm
 
 from utils.general import get_device
 
@@ -151,7 +152,7 @@ class SemanticDecoder(nn.Module):
         return logits, loss
 
     def generate(self, idx, encoder_output, block_size, max_new_tokens):
-        for _ in range(max_new_tokens):
+        for _ in tqdm(range(max_new_tokens), "New token"):
             # crop idx to the last block_size tokens
             idx_cond = idx[:, -block_size:]
             # get the predictions
@@ -165,3 +166,30 @@ class SemanticDecoder(nn.Module):
             # append sampled index to the running sequence
             idx = torch.cat((idx, idx_next), dim=1)  # (B, T+1)
         return idx
+
+    def get_jacobian(self, idx, encoder_output, attention_mask=None):
+        B, T = idx.shape
+
+        token_embeddings = self.token_embedding_table(idx)  # (B,T,C)
+        token_embeddings.retain_grad()
+
+        pos_embeddings = self.position_embedding_table(
+            torch.arange(T, device=self.device)
+        )  # (T,C)
+        x = token_embeddings + pos_embeddings
+
+        if attention_mask is None:
+            attention_mask = torch.ones(B, T, dtype=torch.long).to(self.device)
+
+        x, _, _ = self.decoder_blocks(x, encoder_output, attention_mask)
+        x = self.ln(x)
+
+        C = x.shape[-1]
+        J = torch.empty(B, C, C, dtype=torch.float64)
+
+        for k in tqdm(range(B)):
+            for i in range(C):
+                x[k, -1, i].backward(retain_graph=True)  # run backpropagation
+                J[k, i, :] = token_embeddings.grad[k, -1, :]  # get the grad
+
+        return J

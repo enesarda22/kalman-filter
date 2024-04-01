@@ -15,6 +15,8 @@ def estimate_loss():
         losses = []
         for k in range(eval_iters):
             X, Y = dataloader.get_batch(split)
+            X = X.to(device)
+            Y = Y.to(device)
             logits, loss = decoder(
                 idx=X,
                 encoder_output=encoder_output,
@@ -80,6 +82,8 @@ if __name__ == "__main__":
 
         # sample a batch of data
         xb, yb = dataloader.get_batch("train")
+        xb = xb.to(device)
+        yb = yb.to(device)
 
         # evaluate the loss
         logits, loss = decoder(
