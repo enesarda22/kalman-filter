@@ -6,7 +6,7 @@ from utils.general import get_device
 
 if __name__ == "__main__":
     # hyperparameters
-    batch_size = 16
+    batch_size = 64
     block_size = 256
     n_embeddings = 384
     n_heads = 6
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     encoder_output = torch.zeros(batch_size, block_size, n_embeddings).to(device)
     X, _ = dataloader.get_batch(split="test", random=False)
-    X = X[: 2 * batch_size, :]
+    X = X[: 30 * batch_size, :]
 
     J = []
     for i in range(0, X.shape[0] - batch_size, batch_size):
@@ -45,5 +45,10 @@ if __name__ == "__main__":
         )
         J.append(J_b.detach().cpu())
 
+        if i % (batch_size * 10) == 0:
+            J = torch.cat(J, dim=0)
+            torch.save(J, f"jacobians{i}.pt")
+            J = []
+
     J = torch.cat(J, dim=0)
-    torch.save(J, "jacobians.pt")
+    torch.save(J, "jacobians_last.pt")
