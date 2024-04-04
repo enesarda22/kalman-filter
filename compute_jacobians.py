@@ -37,7 +37,7 @@ if __name__ == "__main__":
     X = X[: 30 * batch_size, :]
 
     J = []
-    for i in range(0, X.shape[0] - batch_size, batch_size):
+    for i in range(1, X.shape[0] - batch_size, batch_size):
         xb = X[i : i + batch_size, :].to(device)
         J_b = decoder.get_jacobian(
             idx=xb,
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         )
         J.append(J_b.detach().cpu())
 
-        if i % (batch_size * 10) == 0:
+        if i % (batch_size * 5) == 0:
             J = torch.cat(J, dim=0)
             torch.save(J, f"jacobians{i}.pt")
             J = []
