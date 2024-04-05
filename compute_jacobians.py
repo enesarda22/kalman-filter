@@ -37,7 +37,7 @@ if __name__ == "__main__":
     X = X[: 30 * batch_size, :]
 
     J = []
-    for i in range(1, X.shape[0] - batch_size, batch_size):
+    for i in range(batch_size, X.shape[0] - batch_size, batch_size):
         xb = X[i : i + batch_size, :].to(device)
         J_b = decoder.get_jacobian(
             idx=xb,
