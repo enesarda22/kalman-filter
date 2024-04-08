@@ -152,13 +152,18 @@ class SemanticDecoder(nn.Module):
         return logits, loss
 
     def generate(self, idx, encoder_output, block_size, max_new_tokens):
-        for _ in tqdm(range(max_new_tokens), "New token"):
+        for _ in tqdm(range(max_new_tokens), "Generating tokens"):
             # crop idx to the last block_size tokens
             idx_cond = idx[:, -block_size:]
+            # padding
+            B, T = idx_cond.shape
+            if T < block_size:
+                zeros = torch.zeros(B, block_size - T, dtype=torch.long)
+                idx_cond = torch.cat((idx_cond, zeros), dim=1)
             # get the predictions
             logits, loss = self(idx_cond, encoder_output)
             # focus only on the last time step
-            logits = logits[:, -1, :]  # becomes (B, C)
+            logits = logits[:, T - 1, :]  # becomes (B, C)
             # apply softmax to get probabilities
             probs = F.softmax(logits, dim=-1)  # (B, C)
             # sample from the distribution
@@ -166,6 +171,34 @@ class SemanticDecoder(nn.Module):
             # append sampled index to the running sequence
             idx = torch.cat((idx, idx_next), dim=1)  # (B, T+1)
         return idx
+
+    def val(self, x_k, encoder_output, attention_mask=None):
+        B, T, C = x_k.shape
+        pos_embeddings = self.position_embedding_table(
+            torch.arange(T, device=self.device)
+        )  # (T,C)
+        x = x_k + pos_embeddings
+
+        if attention_mask is None:
+            attention_mask = torch.ones(B, T, dtype=torch.long).to(self.device)
+
+        x, _, _ = self.decoder_blocks(x, encoder_output, attention_mask)
+        x = self.ln(x)
+
+        return x[:, -1, :]
+
+    def val_and_grad(self, x_k, encoder_output, attention_mask=None):
+        B, T, C = x_k.shape
+        x_k.retain_grad()
+
+        x = self.val(x_k, encoder_output, attention_mask)
+        jacob = torch.empty(C, C, dtype=torch.float64)
+
+        for i in range(C):
+            x[0, i].backward(retain_graph=True)  # run backpropagation
+            jacob[i, :] = x_k.grad[0, -1, :]  # get the grad
+
+        return x[0, :], jacob
 
     def get_jacobian(self, idx, encoder_output, attention_mask=None):
         B, T = idx.shape

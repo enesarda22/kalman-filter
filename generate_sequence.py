@@ -33,20 +33,14 @@ if __name__ == "__main__":
     decoder.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
     context = dataloader.encode("\n")[0] * torch.ones(
-        (1, block_size), dtype=torch.long, device=device
+        (1, 1), dtype=torch.long, device=device
     )
 
-    print(
-        dataloader.decode(
-            decoder.generate(
-                idx=context,
-                encoder_output=torch.zeros(1, block_size, n_embeddings).to(device),
-                block_size=block_size,
-                max_new_tokens=500,
-            )[0]
-            .detach()
-            .cpu()
-            .numpy()
-            .tolist()
-        )
+    generated_sequence = decoder.generate(
+        idx=context,
+        encoder_output=torch.zeros(1, block_size, n_embeddings).to(device),
+        block_size=block_size,
+        max_new_tokens=500,
     )
+    generated_sequence = generated_sequence[0].detach().cpu().numpy().tolist()
+    print(dataloader.decode(generated_sequence))
