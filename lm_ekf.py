@@ -62,7 +62,7 @@ if __name__ == "__main__":
     for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
         idx_context = idx[k : k - 1 + block_size].to(device)
-        x_context = decoder.token_embedding_table(idx_context)
+        x_context = decoder.token_embedding_table.to(device)(idx_context)
         x_k = torch.vstack((x_context, x_hat)).unsqueeze(0)
         y_k = Y[k, :].to(device)
 
