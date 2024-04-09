@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from models.decoder import SemanticDecoder
 from utils.dataloader import Dataloader
@@ -15,8 +16,8 @@ if __name__ == "__main__":
     n_heads = 6
     n_blocks = 6
 
-    sig_w = 1
-    R = (sig_w**2) * torch.eye(n_embeddings, dtype=torch.double).to(device)
+    sig_w = 0
+    R = (sig_w**2) * torch.eye(n_embeddings).to(device)
     # ------------
 
     dataloader = Dataloader(
@@ -36,36 +37,33 @@ if __name__ == "__main__":
     checkpoint = torch.load("checkpoints/lr3e-4/decoder_4999.pt", map_location=device)
     decoder.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    encoder_output = torch.zeros(
-        batch_size, block_size, n_embeddings, dtype=torch.double
-    ).to(device)
+    encoder_output = torch.zeros(batch_size, block_size, n_embeddings).to(device)
     idx, _ = dataloader.get_batch(split="test", random=False)
     idx = torch.cat((idx[0, :], idx[1 : 30 * batch_size, -1]))
 
     # transmitted and received signals
-    X = decoder.token_embedding_table(idx)
-    Y = X + sig_w * torch.randn(X.shape, dtype=torch.double)
+    X = decoder.token_embedding_table.to("cpu")(idx)
+    Y = X[block_size - 1 :, :] + sig_w * torch.randn(X[block_size - 1 :, :].shape)
 
-    n, d = X.shape
+    n, d = Y.shape
 
     # initialize for EKF
-    X_hat = np.empty((n - 1, d), dtype=np.float64)
-    eye = torch.eye(d, dtype=torch.double, device=device)
+    X_hat = np.empty((n, d), dtype=float)
+    eye = torch.eye(d, device=device)
 
     x_hat = decoder.token_embedding_table(torch.tensor(0).to(device))
-    P = torch.randn((d, d), dtype=torch.double, device=device)
+    P = torch.randn((d, d), device=device)
 
     corr_u = torch.load("corr_u.pt", map_location=device)
     mu_u = torch.load("mu_u.pt", map_location=device)
     Q = corr_u - mu_u.unsqueeze(1) @ mu_u.unsqueeze(0)
-    Q = Q.to(torch.double)
 
-    for k in range(1, n):
+    for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
-        idx_context = idx[k - 1 : k - 2 + block_size].to(device)
+        idx_context = idx[k : k - 1 + block_size].to(device)
         x_context = decoder.token_embedding_table(idx_context)
         x_k = torch.vstack((x_context, x_hat)).unsqueeze(0)
-        y_k = Y[k - 1, :].to(device)
+        y_k = Y[k, :].to(device)
 
         # prediction step
         x_pred, F = decoder.val_and_grad(
@@ -82,7 +80,7 @@ if __name__ == "__main__":
         x_hat = x_pred + K @ (y_k - x_pred)
         P = (eye - K) @ P_pred @ (eye - K).T + K @ R @ K.T
 
-        X_hat[k - 1, :] = x_hat.detach().cpu().numpy()
+        X_hat[k, :] = x_hat.detach().cpu().numpy()
 
     torch.save(X, "X.pt")
     torch.save(Y, "Y.pt")

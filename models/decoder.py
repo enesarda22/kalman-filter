@@ -198,7 +198,7 @@ class SemanticDecoder(nn.Module):
             x[0, i].backward(retain_graph=True)  # run backpropagation
             jacob[i, :] = x_k.grad[0, -1, :]  # get the grad
 
-        return x[0, :], jacob
+        return x[0, :], jacob.to(torch.float32)
 
     def get_jacobian(self, idx, encoder_output, attention_mask=None):
         B, T = idx.shape
