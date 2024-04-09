@@ -51,13 +51,14 @@ if __name__ == "__main__":
     X_hat = np.empty((n, d), dtype=float)
     eye = torch.eye(d, device=device)
 
-    x_hat = decoder.token_embedding_table(torch.tensor(0).to(device))
+    x_hat = decoder.token_embedding_table.to(device)(torch.tensor(0).to(device))
     P = torch.randn((d, d), device=device)
 
     corr_u = torch.load("corr_u.pt", map_location=device)
     mu_u = torch.load("mu_u.pt", map_location=device)
     Q = corr_u - mu_u.unsqueeze(1) @ mu_u.unsqueeze(0)
 
+    decoder.eval()
     for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
         idx_context = idx[k : k - 1 + block_size].to(device)
