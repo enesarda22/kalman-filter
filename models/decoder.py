@@ -189,7 +189,7 @@ class SemanticDecoder(nn.Module):
 
     def val_and_grad(self, x_k, encoder_output, attention_mask=None):
         B, T, C = x_k.shape
-        x_k.retain_grad()
+        x_k = x_k.detach().requires_grad_()
 
         x = self.val(x_k, encoder_output, attention_mask)
         jacob = torch.empty(C, C, dtype=torch.float32, device=self.device)

@@ -51,7 +51,8 @@ if __name__ == "__main__":
     X_hat = np.empty((n, d), dtype=float)
     eye = torch.eye(d, device=device)
 
-    x_hat = decoder.token_embedding_table.to(device)(torch.tensor(0).to(device))
+    with torch.no_grad():
+        x_hat = decoder.token_embedding_table.to(device)(torch.tensor(0).to(device))
     P = torch.randn((d, d), device=device)
 
     corr_u = torch.load("corr_u.pt", map_location=device)
@@ -62,7 +63,8 @@ if __name__ == "__main__":
     for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
         idx_context = idx[k : k - 1 + block_size].to(device)
-        x_context = decoder.token_embedding_table.to(device)(idx_context)
+        with torch.no_grad():
+            x_context = decoder.token_embedding_table.to(device)(idx_context)
         x_k = torch.vstack((x_context, x_hat)).unsqueeze(0)
         y_k = Y[k, :].to(device)
 
