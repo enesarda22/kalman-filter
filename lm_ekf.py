@@ -16,7 +16,7 @@ if __name__ == "__main__":
     n_heads = 6
     n_blocks = 6
 
-    sig_w = 0
+    sig_w = 2
     R = (sig_w**2) * torch.eye(n_embeddings).to(device)
     # ------------
 
