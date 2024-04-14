@@ -2,7 +2,9 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from models.decoder import SemanticDecoder
+from models.semantic_decoder import SemanticDecoder
+from models.semantic_encoder import SemanticEncoder
+from models.semantic_transformer import SemanticTransformer
 from utils.dataloader import Dataloader
 from utils.general import get_device, create_checkpoint
 
@@ -10,21 +12,17 @@ from utils.general import get_device, create_checkpoint
 @torch.no_grad()
 def estimate_loss():
     out = {}
-    decoder.eval()
+    transformer.eval()
     for split in ["train", "val"]:
         losses = []
         for k in range(eval_iters):
             X, Y = dataloader.get_batch(split)
             X = X.to(device)
             Y = Y.to(device)
-            logits, loss = decoder(
-                idx=X,
-                encoder_output=encoder_output,
-                targets=Y,
-            )
+            logits, loss = transformer(idx=X, targets=Y)
             losses.append(loss.item())
         out[split] = np.mean(losses)
-    decoder.train()
+    transformer.train()
     return out
 
 
@@ -34,7 +32,7 @@ if __name__ == "__main__":
     block_size = 256
     max_iters = 5000
     eval_interval = 500
-    learning_rate = 1e-5
+    learning_rate = 3e-4
     eval_iters = 200
     n_embeddings = 384
     n_heads = 6
@@ -50,19 +48,33 @@ if __name__ == "__main__":
         train_size=0.9,
     )
 
+    encoder = SemanticEncoder(
+        vocab_size=dataloader.vocab_size,
+        n_blocks=n_blocks,
+        n_heads=n_heads,
+        n_embeddings=n_embeddings,
+        block_size=block_size,
+        pad_idx=dataloader.vocab_size,
+    ).to(device)
+
     decoder = SemanticDecoder(
         vocab_size=dataloader.vocab_size,
         n_blocks=n_blocks,
         n_heads=n_heads,
         n_embeddings=n_embeddings,
         block_size=block_size,
+        pad_idx=dataloader.vocab_size,
     ).to(device)
-    encoder_output = torch.zeros(batch_size, block_size, n_embeddings).to(device)
+
+    transformer = SemanticTransformer(
+        semantic_encoder=encoder,
+        semantic_decoder=decoder,
+    ).to(device)
 
     # print the number of parameters in the model
-    print(sum(p.numel() for p in decoder.parameters()) / 1e6, "M parameters")
+    print(sum(p.numel() for p in transformer.parameters()) / 1e6, "M parameters")
 
-    optimizer = torch.optim.AdamW(decoder.parameters(), lr=learning_rate)
+    optimizer = torch.optim.AdamW(transformer.parameters(), lr=learning_rate)
 
     for i in tqdm(range(max_iters)):
 
@@ -74,8 +86,8 @@ if __name__ == "__main__":
                 f"val loss {losses['val']:.4f}"
             )
             create_checkpoint(
-                path=f"checkpoints/decoder_{i}.pt",
-                model_state_dict=decoder.state_dict(),
+                path=f"checkpoints/transformer_{i}.pt",
+                model_state_dict=transformer.state_dict(),
                 optimizer_state_dict=optimizer.state_dict(),
                 mean_val_loss=losses["val"],
             )
@@ -86,11 +98,7 @@ if __name__ == "__main__":
         yb = yb.to(device)
 
         # evaluate the loss
-        logits, loss = decoder(
-            idx=xb,
-            encoder_output=encoder_output,
-            targets=yb,
-        )
+        logits, loss = transformer(idx=xb, targets=yb)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
