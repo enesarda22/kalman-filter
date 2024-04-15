@@ -16,7 +16,6 @@ class Dataloader:
 
         stoi = {ch: i for i, ch in enumerate(chars)}
         itos = {i: ch for i, ch in enumerate(chars)}
-        self.cls_idx = stoi["CLS"]
 
         # encoder: take a string, output a list of integers
         self.encode = lambda s: [stoi[c] for c in s]
@@ -37,8 +36,6 @@ class Dataloader:
         else:
             ix = torch.arange(0, len(data) - self.block_size)
 
-        x = torch.stack([data[i : i + self.block_size] for i in ix])
-
-        pad = self.cls_idx * torch.ones(self.batch_size, 1, dtype=torch.long)
-        x = torch.hstack([pad, x])
-        return x
+        m = [self.decode(data[i : i + self.block_size + 1].tolist()) for i in ix]
+        x = torch.stack([data[i : i + self.block_size + 1] for i in ix])
+        return x, m

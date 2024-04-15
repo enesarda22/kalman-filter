@@ -1,74 +1,56 @@
 import torch
 from torch import nn
-
-from models.semantic_decoder import DecoderBlock
 from utils.general import get_device
 
-
-class EncoderBlock(nn.Module):
-    def __init__(self, n_heads, n_embeddings):
-        super().__init__()
-        self.device = get_device()
-        self.sa_heads = nn.MultiheadAttention(
-            embed_dim=n_embeddings,
-            num_heads=n_heads,
-            dropout=0.1,
-            batch_first=True,
-        )
-
-        self.ff_net = nn.Sequential(
-            nn.Linear(n_embeddings, 4 * n_embeddings),
-            nn.ReLU(),
-            nn.Linear(4 * n_embeddings, n_embeddings),  # projection
-            nn.Dropout(0.1),
-        )
-        self.ln1 = nn.LayerNorm(n_embeddings)
-        self.ln2 = nn.LayerNorm(n_embeddings)
-
-    def forward(self, x):
-        # norm before the layer, residual connection after the layer
-        x_normed = self.ln1(x)
-        attention_out = self.sa_heads(
-            query=x_normed,
-            key=x_normed,
-            value=x_normed,
-            key_padding_mask=None,
-            need_weights=False,
-            attn_mask=None,
-            is_causal=False,
-        )[0]
-        x = x + attention_out
-        x = x + self.ff_net(self.ln2(x))
-        return x
+from transformers import AutoTokenizer, AutoModel
 
 
 class SemanticEncoder(nn.Module):
+    model_name = "sentence-transformers/all-MiniLM-L6-v2"
 
-    def __init__(self, vocab_size, n_blocks, n_heads, n_embeddings, block_size):
+    def __init__(self, block_size):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embeddings)
-        self.position_embedding_table = nn.Embedding(block_size, n_embeddings)
-
-        self.encoder_blocks = nn.Sequential(
-            *[
-                EncoderBlock(n_heads=n_heads, n_embeddings=n_embeddings)
-                for _ in range(n_blocks)
-            ]
-        )
-        self.ln = nn.LayerNorm(n_embeddings)
-        # self.pooling_head = nn.Linear(block_size, 1, bias=False)
-
+        self.block_size = block_size
         self.device = get_device()
 
-    def forward(self, idx):
-        B, T = idx.shape
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.bert = AutoModel.from_pretrained(self.model_name)
 
-        token_embeddings = self.token_embedding_table(idx)  # (B,T,C)
-        pos_embeddings = self.position_embedding_table(
-            torch.arange(T, device=self.device)
-        )  # (T,C)
-        x = token_embeddings + pos_embeddings
+    def forward(self, m):
+        tokens = self.tokenizer(
+            m,
+            padding="max_length",
+            max_length=self.block_size,
+            truncation=True,
+            return_tensors="pt",
+        ).to(self.device)
+        input_ids = tokens["input_ids"]
+        attention_mask = tokens["attention_mask"]
 
-        x = self.encoder_blocks(x)
-        x = self.ln(x)
-        return x
+        encoder_lhs = self.bert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        )["last_hidden_state"]
+
+        encoder_output = self.mean_pooling(
+            bert_lhs=encoder_lhs,
+            attention_mask=attention_mask,
+        )
+
+        return encoder_output[:, None, :]
+
+    @staticmethod
+    def mean_pooling(bert_lhs, attention_mask=None):
+        if attention_mask is None:
+            out = torch.mean(bert_lhs, 1)
+
+        else:
+            input_mask_expanded = (
+                attention_mask.unsqueeze(-1).expand(bert_lhs.size()).float()
+            )
+
+            out = torch.sum(bert_lhs * input_mask_expanded, 1) / torch.clamp(
+                input_mask_expanded.sum(1), min=1e-9
+            )
+
+        return out
