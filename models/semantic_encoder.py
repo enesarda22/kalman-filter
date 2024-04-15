@@ -56,7 +56,7 @@ class SemanticEncoder(nn.Module):
             ]
         )
         self.ln = nn.LayerNorm(n_embeddings)
-        self.pooling_head = nn.Linear(block_size, 1, bias=False)
+        # self.pooling_head = nn.Linear(block_size, 1, bias=False)
 
         self.device = get_device()
 
@@ -70,7 +70,5 @@ class SemanticEncoder(nn.Module):
         x = token_embeddings + pos_embeddings
 
         x = self.encoder_blocks(x)
-        x = self.pooling_head(self.ln(x).transpose(1, 2))
-        x = x.transpose(1, 2)
-
+        x = self.ln(x)
         return x

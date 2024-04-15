@@ -22,7 +22,7 @@ class SemanticTransformer(nn.Module):
 
         logits, loss = self.semantic_decoder(
             idx=idx[:, :-1],
-            encoder_output=encoder_output,
+            encoder_output=encoder_output[:, [0], :],
             is_causal=False,
             targets=idx[:, 1:],
         )
