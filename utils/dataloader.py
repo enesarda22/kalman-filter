@@ -11,10 +11,12 @@ class Dataloader:
             text = f.read()
 
         chars = sorted(list(set(text)))
+        chars = ["CLS"] + chars
         self.vocab_size = len(chars)
 
         stoi = {ch: i for i, ch in enumerate(chars)}
         itos = {i: ch for i, ch in enumerate(chars)}
+        self.cls_idx = stoi["CLS"]
 
         # encoder: take a string, output a list of integers
         self.encode = lambda s: [stoi[c] for c in s]
@@ -36,5 +38,7 @@ class Dataloader:
             ix = torch.arange(0, len(data) - self.block_size)
 
         x = torch.stack([data[i : i + self.block_size] for i in ix])
-        y = torch.stack([data[i + 1 : i + self.block_size + 1] for i in ix])
-        return x, y
+
+        pad = self.cls_idx * torch.ones(self.batch_size, 1, dtype=torch.long)
+        x = torch.hstack([pad, x])
+        return x

@@ -16,10 +16,10 @@ def estimate_loss():
     for split in ["train", "val"]:
         losses = []
         for k in range(eval_iters):
-            X, Y = dataloader.get_batch(split)
+            X = dataloader.get_batch(split)
             X = X.to(device)
-            Y = Y.to(device)
-            logits, loss = transformer(idx=X, targets=Y)
+
+            logits, loss = transformer(idx=X)
             losses.append(loss.item())
         out[split] = np.mean(losses)
     transformer.train()
@@ -53,8 +53,7 @@ if __name__ == "__main__":
         n_blocks=n_blocks,
         n_heads=n_heads,
         n_embeddings=n_embeddings,
-        block_size=block_size,
-        pad_idx=dataloader.vocab_size,
+        block_size=block_size + 1,
     ).to(device)
 
     decoder = SemanticDecoder(
@@ -93,12 +92,11 @@ if __name__ == "__main__":
             )
 
         # sample a batch of data
-        xb, yb = dataloader.get_batch("train")
+        xb = dataloader.get_batch("train")
         xb = xb.to(device)
-        yb = yb.to(device)
 
         # evaluate the loss
-        logits, loss = transformer(idx=xb, targets=yb)
+        logits, loss = transformer(idx=xb)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
