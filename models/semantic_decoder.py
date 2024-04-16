@@ -94,13 +94,10 @@ class SemanticDecoder(nn.Module):
         n_heads,
         n_embeddings,
         block_size,
-        bert,
         pad_idx,
     ):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embeddings)
-        self.token_embedding_table.weight = bert.embeddings.word_embeddings.weight
-
         self.position_embedding_table = nn.Embedding(block_size, n_embeddings)
 
         self.decoder_blocks = MultiInputSequential(

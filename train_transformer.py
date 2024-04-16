@@ -28,11 +28,11 @@ def estimate_loss():
 
 if __name__ == "__main__":
     # hyperparameters
-    batch_size = 64
+    batch_size = 128
     block_size = 256
-    max_iters = 10000
+    max_iters = 50000
     eval_interval = 500
-    learning_rate = 3e-4
+    learning_rate = 3e-5
     eval_iters = 200
     n_embeddings = 384
     n_heads = 6
@@ -49,8 +49,11 @@ if __name__ == "__main__":
     )
 
     encoder = SemanticEncoder(
-        block_size=int(block_size / 2),
-        dataloader=dataloader,
+        vocab_size=dataloader.vocab_size,
+        n_blocks=n_blocks,
+        n_heads=n_heads,
+        n_embeddings=n_embeddings,
+        block_size=block_size + 1,
     ).to(device)
 
     decoder = SemanticDecoder(
@@ -59,7 +62,6 @@ if __name__ == "__main__":
         n_heads=n_heads,
         n_embeddings=n_embeddings,
         block_size=block_size,
-        bert=encoder.bert,
         pad_idx=dataloader.vocab_size,
     ).to(device)
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     for i in tqdm(range(max_iters)):
 
         # every once in a while evaluate the loss on train and val sets
-        if i % eval_interval == 0 or i == max_iters - 1:
+        if (i + 1) % eval_interval == 0 or (i + 1) == max_iters:
             losses = estimate_loss()
             print(
                 f"step {i}: train loss {losses['train']:.4f}, "
