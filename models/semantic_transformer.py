@@ -17,8 +17,8 @@ class SemanticTransformer(nn.Module):
         self.semantic_encoder = semantic_encoder
         self.semantic_decoder = semantic_decoder
 
-    def forward(self, m, idx):
-        encoder_output = self.semantic_encoder(m=m)
+    def forward(self, idx):
+        encoder_output = self.semantic_encoder(idx=idx)
 
         logits, loss = self.semantic_decoder(
             idx=idx[:, :-1],

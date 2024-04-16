@@ -2,40 +2,27 @@ import torch
 from torch import nn
 from utils.general import get_device
 
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoModel
 
 
 class SemanticEncoder(nn.Module):
     model_name = "sentence-transformers/all-MiniLM-L6-v2"
 
-    def __init__(self, block_size):
+    def __init__(self, block_size, dataloader):
         super().__init__()
         self.block_size = block_size
         self.device = get_device()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.bert = AutoModel.from_pretrained(self.model_name)
-
-    def forward(self, m):
-        tokens = self.tokenizer(
-            m,
-            padding="max_length",
-            max_length=self.block_size,
-            truncation=True,
-            return_tensors="pt",
-        ).to(self.device)
-        input_ids = tokens["input_ids"]
-        attention_mask = tokens["attention_mask"]
-
-        encoder_lhs = self.bert(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-        )["last_hidden_state"]
-
-        encoder_output = self.mean_pooling(
-            bert_lhs=encoder_lhs,
-            attention_mask=attention_mask,
+        self.bert.embeddings.word_embeddings.weight = nn.Parameter(
+            self.bert.embeddings.word_embeddings.weight[
+                [dataloader.idx_to_id[i] for i in range(dataloader.vocab_size)], :
+            ]
         )
+
+    def forward(self, idx):
+        encoder_lhs = self.bert(input_ids=idx)["last_hidden_state"]
+        encoder_output = self.mean_pooling(bert_lhs=encoder_lhs)
 
         return encoder_output[:, None, :]
 
