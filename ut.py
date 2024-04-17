@@ -76,7 +76,7 @@ if __name__ == "__main__":
     sns.histplot(y, stat="density", ax=ax, label="$p(y)$")
     sns.lineplot(x=grid, y=gaussian_y, label="Gaussian of $p(y)$")
     sns.lineplot(x=grid, y=gaussian_y_ekf, label="EKF Gaussian")
-    sns.lineplot(x=grid, y=gaussian_y_ukf, color="r", label="UKF Gaussian")
+    sns.lineplot(x=grid, y=gaussian_y_ukf, color="r", label="UT Gaussian")
     sns.scatterplot(
         x=sigma_x, y=[0, 0, 0], marker="x", s=90, color="k", label="Sigma Points"
     )

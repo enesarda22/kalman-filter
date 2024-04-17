@@ -5,9 +5,9 @@ from matplotlib.ticker import FormatStrFormatter
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    alpha = 0.5
+    alpha = 1.0
     kappa = 2.0
-    beta = 2.0
+    beta = 0.0
 
     n = 100000
     sig_u = np.sqrt(0.5)
