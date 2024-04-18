@@ -106,7 +106,7 @@ if __name__ == "__main__":
         x_hat_a = torch.cat([x_hat, mu_u])
         P_a = torch.block_diag(P, Q)
         D, U = torch.linalg.eigh(P_a)
-        D[D < 0] = 0.0
+        D[D <= 0] = 1e-6
         P_a = U @ torch.diag(D) @ U.T
 
         delta = torch.linalg.cholesky((L + lambda_) * P_a)
