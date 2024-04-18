@@ -63,9 +63,9 @@ def isPD(B):
 if __name__ == "__main__":
     device = get_device()
 
-    alpha = 1e-3
+    alpha = 1.0
     kappa = 0.0
-    beta = 2.0
+    beta = 0.0
 
     # hyperparameters
     batch_size = 64
@@ -169,7 +169,7 @@ if __name__ == "__main__":
         u_k = sigma_mat[:, None, d:]
 
         dataset = TensorDataset(x_k, u_k)
-        dl = DataLoader(dataset, batch_size=batch_size)
+        dl = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         sigma_pred = []
         for x_b, u_b in dl:
             with torch.no_grad():
