@@ -146,6 +146,19 @@ class SemanticDecoder(nn.Module):
 
         return logits, loss
 
+    def val(self, x_k, u_k):
+        B, T, _ = x_k.shape
+        pos_embeddings = self.position_embedding_table(
+            torch.arange(T, device=self.device)
+        )  # (T,C)
+        x = x_k + pos_embeddings
+
+        source_padding_mask = torch.zeros(B, T, device=self.device, dtype=torch.bool)
+        x, _, _, _, _ = self.decoder_blocks(x, u_k, source_padding_mask, None, False)
+        x = self.ln(x)
+
+        return x[:, -1, :]
+
     def generate(
         self,
         encoder_output,
