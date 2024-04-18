@@ -10,12 +10,62 @@ from models.semantic_transformer import SemanticTransformer
 from utils.dataloader import Dataloader
 from utils.general import get_device
 
+
+def cholesky(A):
+    """Find the nearest positive-definite matrix to input
+
+    A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
+    credits [2].
+
+    [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+
+    [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
+    matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
+    """
+
+    B = (A + A.T) / 2
+
+    _, s, V = torch.linalg.svd(B)
+    H = V.T @ torch.diag(s) @ V
+
+    A2 = (B + H) / 2
+    A3 = (A2 + A2.T) / 2
+
+    try:
+        C = torch.linalg.cholesky(A3)
+        return C
+    except torch.linalg.LinAlgError:
+        eps = torch.finfo(torch.float32).eps
+
+        I = torch.eye(A.shape[0], device=device)
+        k = 1
+        while True:
+            mineig = torch.min(torch.real(torch.linalg.eigvals(A3)))
+            A3 += I * (-mineig * k**2 + eps)
+            k += 1
+
+            try:
+                C = torch.linalg.cholesky(A3)
+                return C
+            except torch.linalg.LinAlgError:
+                continue
+
+
+def isPD(B):
+    """Returns true when input is positive-definite, via Cholesky"""
+    try:
+        _ = torch.linalg.cholesky(B)
+        return True
+    except torch.linalg.LinAlgError:
+        return False
+
+
 if __name__ == "__main__":
     device = get_device()
 
-    alpha = 1.0
-    kappa = 2.0
-    beta = 0.0
+    alpha = 1e-3
+    kappa = 0.0
+    beta = 2.0
 
     # hyperparameters
     batch_size = 64
@@ -105,11 +155,8 @@ if __name__ == "__main__":
 
         x_hat_a = torch.cat([x_hat, mu_u])
         P_a = torch.block_diag(P, Q)
-        D, U = torch.linalg.eigh(P_a)
-        D += 1e-6
-        P_a = U @ torch.diag(D) @ U.T
 
-        delta = torch.linalg.cholesky((L + lambda_) * P_a)
+        delta = cholesky((L + lambda_) * P_a)
         sigma_mat = torch.hstack(
             [x_hat_a[:, None], x_hat_a[:, None] + delta, x_hat_a[:, None] - delta]
         ).T
@@ -140,8 +187,8 @@ if __name__ == "__main__":
 
         # observation update step
         x_hat = x_pred + K @ (y_k - x_pred)
-        # P = (eye - K) @ P_pred @ (eye - K).T + K @ R @ K.T
-        P = P_pred - K @ (P_pred + R) @ K.T
+        P = (eye - K) @ P_pred @ (eye - K).T + K @ R @ K.T
+        # P = P_pred - K @ (P_pred + R) @ K.T
 
         X_hat[k, :] = x_hat.detach().cpu().numpy()
 
