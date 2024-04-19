@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     # transmitted and received signals
     X = decoder.token_embedding_table.to("cpu")(idx)
-    Y = X[block_size - 1 :, :] + sig_w * torch.randn(X[block_size - 1 :, :].shape)
+    Y = X[block_size:, :] + sig_w * torch.randn(X[block_size:, :].shape)
 
     n, d = Y.shape
 
@@ -85,6 +85,6 @@ if __name__ == "__main__":
 
         X_hat[k, :] = x_hat.detach().cpu().numpy()
 
-    torch.save(X, "X.pt")
-    torch.save(Y, "Y.pt")
-    torch.save(X_hat, "X_hat.pt")
+    torch.save(X, "X_ekf.pt")
+    torch.save(Y, "Y_ekf.pt")
+    torch.save(X_hat, "X_hat_ekf.pt")
