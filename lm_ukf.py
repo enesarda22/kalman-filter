@@ -65,7 +65,7 @@ if __name__ == "__main__":
     torch.manual_seed(42)
 
     alpha = 1.0
-    kappa = 192.0
+    kappa = 384.0
     beta = 0.0
 
     # hyperparameters
@@ -134,7 +134,11 @@ if __name__ == "__main__":
     x_hat = x_hat.to(device)
     P = P.to(device)
 
-    L = d
+    corr_u = torch.load("corr_u_ukf.pt", map_location=device)
+    mu_u = torch.load("mu_u_ukf.pt", map_location=device)
+    Q = corr_u - mu_u.unsqueeze(1) @ mu_u.unsqueeze(0)
+
+    L = 2 * d
     lambda_ = (alpha**2) * (L + kappa) - L
     w_m = (1 / (2 * (L + lambda_))) * torch.ones(2 * L + 1, device=device)
     w_m[0] = lambda_ / (L + lambda_)
@@ -149,18 +153,20 @@ if __name__ == "__main__":
         idx_k = idx[k : k + block_size + 1].to(device)
         y_k = Y[k, :].to(device)
 
-        delta = cholesky((L + lambda_) * P)
+        x_hat_a = torch.cat([x_hat, mu_u])
+        P_a = torch.block_diag(P, Q)
+
+        delta = cholesky((L + lambda_) * P_a)
         sigma_mat = torch.hstack(
-            [x_hat[:, None], x_hat[:, None] + delta, x_hat[:, None] - delta]
+            [x_hat_a[:, None], x_hat_a[:, None] + delta, x_hat_a[:, None] - delta]
         ).T
 
         # prediction step
         x_k = torch.cat(
-            [x_context[None, :, :].expand(2 * L + 1, -1, -1), sigma_mat[:, None, :]],
+            [x_context[None, :, :].expand(2 * L + 1, -1, -1), sigma_mat[:, None, :d]],
             dim=1,
         )
-        u_k = transformer.semantic_encoder(idx=idx_k[None, :])
-        u_k = u_k.expand(2 * L + 1, -1, -1)
+        u_k = sigma_mat[:, None, d:]
 
         dataset = TensorDataset(x_k, u_k)
         dl = DataLoader(dataset, batch_size=batch_size, shuffle=False)
