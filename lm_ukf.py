@@ -65,7 +65,7 @@ if __name__ == "__main__":
     torch.manual_seed(42)
 
     alpha = 1.0
-    kappa = 384.0
+    kappa = 192.0
     beta = 0.0
 
     # hyperparameters
@@ -130,11 +130,7 @@ if __name__ == "__main__":
     x_hat = X[block_size - 1, :].to(device)
     P = torch.eye(d, device=device)
 
-    corr_u = torch.load("corr_u_ukf.pt", map_location=device)
-    mu_u = torch.load("mu_u_ukf.pt", map_location=device)
-    Q = corr_u - mu_u.unsqueeze(1) @ mu_u.unsqueeze(0)
-
-    L = 2 * d
+    L = d
     lambda_ = (alpha**2) * (L + kappa) - L
     w_m = (1 / (2 * (L + lambda_))) * torch.ones(2 * L + 1, device=device)
     w_m[0] = lambda_ / (L + lambda_)
@@ -146,27 +142,22 @@ if __name__ == "__main__":
     for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
         x_context = X[k : k - 1 + block_size].to(device)
-        # idx_context = idx[k : k - 1 + block_size].to(device)
-        # with torch.no_grad():
-        #     x_context = transformer.semantic_decoder.token_embedding_table.to(device)(
-        #         idx_context
-        #     )
+        encoder_idx = idx[k : k + block_size + 1].to(device)
+
         y_k = Y[k, :].to(device)
 
-        x_hat_a = torch.cat([x_hat, mu_u])
-        P_a = torch.block_diag(P, Q)
-
-        delta = cholesky((L + lambda_) * P_a)
+        delta = cholesky((L + lambda_) * P)
         sigma_mat = torch.hstack(
-            [x_hat_a[:, None], x_hat_a[:, None] + delta, x_hat_a[:, None] - delta]
+            [x_hat[:, None], x_hat[:, None] + delta, x_hat[:, None] - delta]
         ).T
 
         # prediction step
         x_k = torch.cat(
-            [x_context[None, :, :].expand(2 * L + 1, -1, -1), sigma_mat[:, None, :d]],
+            [x_context[None, :, :].expand(2 * L + 1, -1, -1), sigma_mat[:, None, :]],
             dim=1,
         )
-        u_k = sigma_mat[:, None, d:]
+        u_k = transformer.semantic_encoder(idx=encoder_idx[None, :])
+        u_k = u_k.expand(2 * L + 1, -1, -1)
 
         dataset = TensorDataset(x_k, u_k)
         dl = DataLoader(dataset, batch_size=batch_size, shuffle=False)
