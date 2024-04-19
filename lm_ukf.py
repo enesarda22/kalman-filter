@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 
 from models.semantic_decoder import SemanticDecoder
@@ -63,6 +64,10 @@ if __name__ == "__main__":
     device = get_device()
     torch.manual_seed(42)
 
+    alpha = 1.0
+    kappa = 192.0
+    beta = 0.0
+
     # hyperparameters
     batch_size = 64
     block_size = 64
@@ -123,20 +128,50 @@ if __name__ == "__main__":
 
     Rx = X[:, :, None] @ X[:, None, :]
     Rx = torch.mean(Rx, dim=0)
-    mux = torch.mean(X, dim=0)
-    P = Rx - (mux[:, None] @ mux[None, :])
+    x_hat = torch.mean(X, dim=0)
+    P = Rx - (x_hat[:, None] @ x_hat[None, :])
+
+    x_hat = x_hat.to(device)
     P = P.to(device)
+
+    L = d
+    lambda_ = (alpha**2) * (L + kappa) - L
+    w_m = (1 / (2 * (L + lambda_))) * torch.ones(2 * L + 1, device=device)
+    w_m[0] = lambda_ / (L + lambda_)
+    w_c = (1 / (2 * (L + lambda_))) * torch.ones(2 * L + 1, device=device)
+    w_c[0] = lambda_ / (L + lambda_) + (1 - alpha**2 + beta)
 
     transformer.to(device)
     transformer.eval()
     for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
+        x_context = X[k : k - 1 + block_size].to(device)
         idx_k = idx[k : k + block_size + 1].to(device)
         y_k = Y[k, :].to(device)
 
+        delta = cholesky((L + lambda_) * P)
+        sigma_mat = torch.hstack(
+            [x_hat[:, None], x_hat[:, None] + delta, x_hat[:, None] - delta]
+        ).T
+
         # prediction step
-        with torch.no_grad():
-            x_pred = transformer.val(idx=idx_k[None, :])[0, :]
+        x_k = torch.cat(
+            [x_context[None, :, :].expand(2 * L + 1, -1, -1), sigma_mat[:, None, :]],
+            dim=1,
+        )
+        u_k = transformer.semantic_encoder(idx=idx_k[None, :])
+        u_k = u_k.expand(2 * L + 1, -1, -1)
+
+        dataset = TensorDataset(x_k, u_k)
+        dl = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        sigma_pred = []
+        for x_b, u_b in dl:
+            with torch.no_grad():
+                sigma_pred_b = transformer.semantic_decoder.val(x_k=x_b, u_k=u_b)
+            sigma_pred.append(sigma_pred_b.detach().cpu())
+        sigma_pred = torch.cat(sigma_pred).to(device)
+
+        x_pred = w_m @ sigma_pred
 
         # kalman gain
         K = torch.linalg.solve(P + R, P, left=False)
