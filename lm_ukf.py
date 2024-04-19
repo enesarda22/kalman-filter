@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # transmitted and received signals
     with torch.no_grad():
         X = transformer.semantic_decoder.token_embedding_table.to("cpu")(idx)
-    Y = X[block_size - 1 :, :] + sig_w * torch.randn(X[block_size - 1 :, :].shape)
+    Y = X[block_size:, :] + sig_w * torch.randn(X[block_size:, :].shape)
 
     n, d = Y.shape
 
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         P = (eye - K) @ P_pred @ (eye - K).T + K @ R @ K.T
         # P = P_pred - K @ (P_pred + R) @ K.T
 
-        x_hat = transformer.semantic_decoder.get_close_embeddings(x_hat[None, :])[0, :]
+        # x_hat = transformer.semantic_decoder.get_close_embeddings(x_hat[None, :])[0, :]
         X_hat[k, :] = x_hat.detach().cpu().numpy()
 
     torch.save(X, "X_ukf.pt")

@@ -138,11 +138,11 @@ class SemanticDecoder(nn.Module):
         if targets is None:
             loss = None
         else:
-            logits = logits.reshape(B * T, -1)
+            flat_logits = logits.reshape(B * T, -1)
             targets = targets.reshape(B * T)
             target_mask = targets != self.pad_idx
 
-            loss = F.cross_entropy(logits[target_mask, :], targets[target_mask])
+            loss = F.cross_entropy(flat_logits[target_mask, :], targets[target_mask])
 
         return logits, loss
 

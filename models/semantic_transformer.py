@@ -37,17 +37,17 @@ class SemanticTransformer(nn.Module):
     def generate(self, idx, block_size, max_new_tokens):
         for _ in tqdm(range(max_new_tokens), "Generating tokens"):
             # crop idx to the last block_size tokens
-            idx_cond = idx[:, -block_size:]
+            idx_cond = idx[:, -(block_size + 1) :]
             # padding
             B, T = idx_cond.shape
-            if T < block_size:
+            if T < (block_size + 1):
                 zeros = torch.zeros(B, block_size - T, dtype=torch.long)
                 idx_cond = torch.cat((idx_cond, zeros), dim=1)
             # get the predictions
-            logits, loss = self(idx_cond)
+            logits, _ = self(idx_cond)
 
             # focus only on the last time step
-            logits = logits[:, T - 1, :]  # becomes (B, C)
+            logits = logits[:, T - 2, :]  # becomes (B, C)
             # apply softmax to get probabilities
             probs = F.softmax(logits, dim=-1)  # (B, C)
             # sample from the distribution
