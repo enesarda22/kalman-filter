@@ -29,6 +29,11 @@ class SemanticTransformer(nn.Module):
 
         return logits, loss
 
+    def val(self, idx):
+        encoder_output = self.semantic_encoder(idx=idx)
+        x_k = self.semantic_decoder.token_embedding_table(idx[:, :-1])
+        return self.semantic_decoder.val(x_k=x_k, u_k=encoder_output)
+
     def generate(self, idx, block_size, max_new_tokens):
         for _ in tqdm(range(max_new_tokens), "Generating tokens"):
             # crop idx to the last block_size tokens

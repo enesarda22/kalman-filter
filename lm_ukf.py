@@ -62,9 +62,10 @@ def isPD(B):
 
 if __name__ == "__main__":
     device = get_device()
+    torch.manual_seed(42)
 
     alpha = 1.0
-    kappa = 0.0
+    kappa = 384.0
     beta = 0.0
 
     # hyperparameters
@@ -126,10 +127,7 @@ if __name__ == "__main__":
     X_hat = np.empty((n, d), dtype=float)
     eye = torch.eye(d, device=device)
 
-    with torch.no_grad():
-        x_hat = transformer.semantic_decoder.token_embedding_table.to(device)(
-            torch.tensor(dataloader.tokenizer.encode("\n")[0]).to(device)
-        )
+    x_hat = X[block_size - 1, :].to(device)
     P = torch.eye(d, device=device)
 
     corr_u = torch.load("corr_u_ukf.pt", map_location=device)
@@ -143,14 +141,16 @@ if __name__ == "__main__":
     w_c = (1 / (2 * (L + lambda_))) * torch.ones(2 * L + 1, device=device)
     w_c[0] = lambda_ / (L + lambda_) + (1 - alpha**2 + beta)
 
+    transformer.to(device)
     transformer.eval()
     for k in tqdm(range(n), "Filtering Samples"):
         # prepare context
-        idx_context = idx[k : k - 1 + block_size].to(device)
-        with torch.no_grad():
-            x_context = transformer.semantic_decoder.token_embedding_table.to(device)(
-                idx_context
-            )
+        x_context = X[k : k - 1 + block_size].to(device)
+        # idx_context = idx[k : k - 1 + block_size].to(device)
+        # with torch.no_grad():
+        #     x_context = transformer.semantic_decoder.token_embedding_table.to(device)(
+        #         idx_context
+        #     )
         y_k = Y[k, :].to(device)
 
         x_hat_a = torch.cat([x_hat, mu_u])
@@ -190,6 +190,7 @@ if __name__ == "__main__":
         P = (eye - K) @ P_pred @ (eye - K).T + K @ R @ K.T
         # P = P_pred - K @ (P_pred + R) @ K.T
 
+        x_hat = transformer.semantic_decoder.get_close_embeddings(x_hat[None, :])[0, :]
         X_hat[k, :] = x_hat.detach().cpu().numpy()
 
     torch.save(X, "X_ukf.pt")

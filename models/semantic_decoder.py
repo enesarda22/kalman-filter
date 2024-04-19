@@ -155,9 +155,12 @@ class SemanticDecoder(nn.Module):
 
         source_padding_mask = torch.zeros(B, T, device=self.device, dtype=torch.bool)
         x, _, _, _, _ = self.decoder_blocks(x, u_k, source_padding_mask, None, False)
-        x = self.ln(x)
+        return self.get_close_embeddings(self.ln(x)[:, -1, :])
 
-        return x[:, -1, :]
+    def get_close_embeddings(self, x):
+        logits = self.lm_head(x)
+        max_indices = torch.argmax(logits, dim=1)
+        return self.token_embedding_table.weight[max_indices, :]
 
     def generate(
         self,
